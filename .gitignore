@@ -1,0 +1,7 @@
+input_videos/*.mp4
+output_videos/*.avi
+output_videos/*.mp4
+stubs/
+venv/
+models/
+__pycache__/
