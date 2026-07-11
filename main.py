@@ -47,7 +47,7 @@ def main():
     source_fps = cv2.VideoCapture(args.input_video).get(cv2.CAP_PROP_FPS)
     
     ## Initialize Tracker
-    player_tracker = PlayerTracker(PLAYER_DETECTOR_PATH)
+    player_tracker = PlayerTracker(PLAYER_DETECTOR_PATH, frame_rate=int(source_fps))
     ball_tracker = BallTracker(BALL_DETECTOR_PATH)
 
     ## Initialize Keypoint Detector
@@ -156,7 +156,7 @@ def main():
 
     # Save video
     save_video(output_video_frames, args.output_video, fps=source_fps)
-    
+
 if __name__ == '__main__':
     main()
     

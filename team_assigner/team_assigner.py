@@ -20,8 +20,8 @@ class TeamAssigner:
         team_2_class_name (str): Description of Team 2's jersey appearance.
     """
     def __init__(self,
-                 team_1_class_name= "white shirt",
-                 team_2_class_name= "dark blue shirt",
+                 team_1_class_name= "white jersey",
+                 team_2_class_name= "black jersey",
                  ):
         """
         Initialize the TeamAssigner with specified team jersey descriptions.
@@ -123,8 +123,7 @@ class TeamAssigner:
         for frame_num, player_track in enumerate(player_tracks):        
             player_assignment.append({})
             
-            if frame_num %50 ==0:
-                self.player_team_dict = {}
+           
 
             for player_id, track in player_track.items():
                 team = self.get_player_team(video_frames[frame_num],   
