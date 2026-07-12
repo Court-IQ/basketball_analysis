@@ -76,7 +76,10 @@ def main():
    
 
     # Assign Player Teams
-    team_assigner = TeamAssigner()
+    team_assigner = TeamAssigner(
+    team_1_class_name="white basketball jersey",
+    team_2_class_name="navy blue basketball jersey"
+    )
     player_assignment = team_assigner.get_player_teams_across_frames(video_frames,
                                                                     player_tracks,
                                                                     read_from_stub=True,
