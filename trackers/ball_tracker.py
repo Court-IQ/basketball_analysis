@@ -30,7 +30,7 @@ class BallTracker:
         batch_size=20 
         detections = [] 
         for i in range(0,len(frames),batch_size):
-            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.5)
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.65)
             detections += detections_batch
         return detections
 
@@ -63,7 +63,7 @@ class BallTracker:
             detection_supervision = sv.Detections.from_ultralytics(detection)
 
             tracks.append({})
-            chosen_bbox =None
+            chosen_bbox = None
             max_confidence = 0
             
             for frame_detection in detection_supervision:
@@ -72,7 +72,20 @@ class BallTracker:
                 confidence = frame_detection[2]
                 
                 if cls_id == cls_names_inv['Ball']:
-                    if max_confidence<confidence:
+                    width = bbox[2] - bbox[0]
+                    height = bbox[3] - bbox[1]
+
+                    # Reject degenerate boxes
+                    if width <= 0 or height <= 0:
+                        continue
+
+                    # Ball should be roughly square (round object) - reject elongated
+                    # boxes, which are more likely hands, shoes, or misclassified objects
+                    aspect_ratio = width / height
+                    if aspect_ratio < 0.6 or aspect_ratio > 1.6:
+                        continue
+
+                    if max_confidence < confidence:
                         chosen_bbox = bbox
                         max_confidence = confidence
 
@@ -94,7 +107,7 @@ class BallTracker:
             list: Filtered ball positions with incorrect detections removed.
         """
         
-        maximum_allowed_distance = 25
+        maximum_allowed_distance = 40
         last_good_frame_index = -1
 
         for i in range(len(ball_positions)):

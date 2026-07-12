@@ -38,14 +38,19 @@ class CourtKeypointDetector:
         
         return court_keypoints
 
-    def smooth_keypoints(self, court_keypoints, window_size=5):
+    def smooth_keypoints(self, court_keypoints, window_size=5, confidence_threshold=0.5):
         """
         Smooths keypoint positions across frames using a rolling average, to reduce
         frame-to-frame jitter in the tactical view / minimap.
 
+        Only averages a keypoint using frames where that specific point was detected
+        with high enough confidence - low-confidence/occluded detections are excluded
+        so they don't drag the average off the true court line.
+
         Args:
             court_keypoints (list): List of per-frame Keypoints objects.
             window_size (int): Number of frames to average over (must be odd for symmetry).
+            confidence_threshold (float): Minimum per-point confidence to include in averaging.
 
         Returns:
             list: The same list, with each frame's x/y positions smoothed in place.
@@ -54,24 +59,35 @@ class CourtKeypointDetector:
         half_window = window_size // 2
 
         for i in range(num_frames):
+            kp_current = court_keypoints[i]
+            if kp_current is None or kp_current.data.shape[1] == 0:
+                continue
+
             start = max(0, i - half_window)
             end = min(num_frames, i + half_window + 1)
 
-            xy_stack = []
-            for j in range(start, end):
-                kp = court_keypoints[j]
-                if kp is not None and kp.data.shape[1] > 0:
-                    xy_stack.append(kp.data[..., :2].cpu().numpy())
+            num_points = kp_current.data.shape[1]
+            has_conf = kp_current.data.shape[-1] > 2
+            device = kp_current.data.device
+            new_data = kp_current.data.clone()
 
-            if len(xy_stack) == 0:
-                continue
+            for point_idx in range(num_points):
+                xy_stack = []
+                for j in range(start, end):
+                    kp = court_keypoints[j]
+                    if kp is None or kp.data.shape[1] <= point_idx:
+                        continue
+                    conf = kp.data[0, point_idx, 2].item() if has_conf else 1.0
+                    if conf >= confidence_threshold:
+                        xy_stack.append(kp.data[0, point_idx, :2].cpu().numpy())
 
-            avg_xy = np.mean(np.stack(xy_stack, axis=0), axis=0)
+                if len(xy_stack) == 0:
+                    continue  # no confident detections in window, leave this point as-is
 
-            device = court_keypoints[i].data.device
-            new_data = court_keypoints[i].data.clone()
-            new_data[..., 0] = torch.from_numpy(avg_xy[..., 0]).to(device)
-            new_data[..., 1] = torch.from_numpy(avg_xy[..., 1]).to(device)
+                avg_xy = np.mean(np.stack(xy_stack, axis=0), axis=0)
+                new_data[0, point_idx, 0] = torch.tensor(avg_xy[0], device=device)
+                new_data[0, point_idx, 1] = torch.tensor(avg_xy[1], device=device)
+
             court_keypoints[i].data = new_data
 
         return court_keypoints
