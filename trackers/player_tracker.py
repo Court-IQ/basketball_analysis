@@ -22,8 +22,8 @@ class PlayerTracker:
         self.model = YOLO(model_path) 
         self.tracker = sv.ByteTrack(
             track_activation_threshold=0.25,
-            lost_track_buffer=60,
-            minimum_matching_threshold=0.85,
+            lost_track_buffer=120,
+            minimum_matching_threshold=0.75,
             frame_rate=frame_rate
         )
 
@@ -40,7 +40,7 @@ class PlayerTracker:
         batch_size=20 
         detections = [] 
         for i in range(0,len(frames),batch_size):
-            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.35)
+            detections_batch = self.model.predict(frames[i:i+batch_size],conf=0.25)
             detections += detections_batch
         return detections
 
