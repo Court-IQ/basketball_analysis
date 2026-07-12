@@ -58,6 +58,7 @@ def main():
                                        read_from_stub=True,
                                        stub_path=os.path.join(args.stub_path, 'player_track_stubs.pkl')
                                       )
+    player_tracks = player_tracker.merge_broken_tracks(player_tracks, max_frame_gap=15, max_distance=150)
     
     ball_tracks = ball_tracker.get_object_tracks(video_frames,
                                                  read_from_stub=True,
