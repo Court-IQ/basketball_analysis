@@ -69,7 +69,9 @@ class CourtKeypointDetector:
             avg_xy = np.mean(np.stack(xy_stack, axis=0), axis=0)
 
             device = court_keypoints[i].data.device
-            court_keypoints[i].data[..., 0] = torch.from_numpy(avg_xy[..., 0]).to(device)
-            court_keypoints[i].data[..., 1] = torch.from_numpy(avg_xy[..., 1]).to(device)
+            new_data = court_keypoints[i].data.clone()
+            new_data[..., 0] = torch.from_numpy(avg_xy[..., 0]).to(device)
+            new_data[..., 1] = torch.from_numpy(avg_xy[..., 1]).to(device)
+            court_keypoints[i].data = new_data
 
         return court_keypoints
