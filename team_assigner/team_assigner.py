@@ -90,6 +90,7 @@ class TeamAssigner:
           return self.player_team_dict[player_id]
 
         player_color = self.get_player_color(frame,player_bbox)
+        print(f"Player {player_id} classified as: {player_color}")
 
         team_id=2
         if player_color==self.team_1_class_name:
