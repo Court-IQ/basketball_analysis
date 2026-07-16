@@ -20,12 +20,6 @@ class BallTracker:
     def detect_frames(self, frames):
         """
         Detect the ball in a sequence of frames using batch processing.
-
-        Args:
-            frames (list): List of video frames to process.
-
-        Returns:
-            list: YOLO detection results for each frame.
         """
         batch_size=20 
         detections = [] 
@@ -38,21 +32,11 @@ class BallTracker:
         """
         Get ball tracking results for a sequence of frames with optional caching.
 
-        Instead of always picking the highest-confidence "Ball" detection per frame,
-        this prefers whichever candidate is physically closest to the last known ball
-        position. A real ball can't teleport across the frame in one tick, so a
-        high-confidence detection far from the last known spot (a head, the hoop, a
-        clock, a ref) is treated as noise and skipped rather than jumped to.
-
-        Args:
-            frames (list): List of video frames to process.
-            read_from_stub (bool): Whether to attempt reading cached results.
-            stub_path (str): Path to the cache file.
-            max_jump_distance (float): Max pixels the ball is allowed to move between
-                consecutive frames before a candidate is considered implausible.
-
-        Returns:
-            list: List of dictionaries containing ball tracking information for each frame.
+        Picks whichever detection is closest to the last known ball position, instead
+        of always trusting the highest-confidence detection. Also includes a drift
+        correction: if some far-away detection keeps showing up consistently for
+        several frames straight, it's probably the real ball and we've locked onto
+        the wrong object - so we re-anchor to it.
         """
         tracks = read_stub(read_from_stub,stub_path)
         if tracks is not None:
@@ -64,17 +48,18 @@ class BallTracker:
         tracks=[]
         last_known_center = None
         frames_since_last_seen = 0
+        drift_candidate_center = None
+        drift_streak = 0
+        drift_confirm_frames = 8
 
         for frame_num, detection in enumerate(detections):
             cls_names = detection.names
             cls_names_inv = {v:k for k,v in cls_names.items()}
 
-            # Covert to supervision Detection format
             detection_supervision = sv.Detections.from_ultralytics(detection)
 
             tracks.append({})
 
-            # Collect all plausible ball candidates this frame
             candidates = []
             for frame_detection in detection_supervision:
                 bbox = frame_detection[0].tolist()
@@ -112,6 +97,29 @@ class BallTracker:
                     if len(nearby_candidates) > 0:
                         best = max(nearby_candidates, key=lambda c: c["confidence"])
                         chosen_bbox = best["bbox"]
+
+                    # --- Drift correction ---
+                    far_candidates = [c for c in candidates if c not in nearby_candidates]
+                    if len(far_candidates) > 0:
+                        far_best = max(far_candidates, key=lambda c: c["confidence"])
+                        if drift_candidate_center is not None:
+                            drift_dist = np.linalg.norm(np.array(far_best["center"]) - np.array(drift_candidate_center))
+                        else:
+                            drift_dist = None
+
+                        if drift_dist is not None and drift_dist <= max_jump_distance:
+                            drift_streak += 1
+                        else:
+                            drift_streak = 1
+                        drift_candidate_center = far_best["center"]
+
+                        if drift_streak >= drift_confirm_frames:
+                            chosen_bbox = far_best["bbox"]
+                            drift_streak = 0
+                            drift_candidate_center = None
+                    else:
+                        drift_streak = 0
+                        drift_candidate_center = None
                 else:
                     best = max(candidates, key=lambda c: c["confidence"])
                     chosen_bbox = best["bbox"]
@@ -129,8 +137,7 @@ class BallTracker:
 
     def filter_ball_near_player_heads(self, ball_positions, player_tracks, head_height_fraction=0.3):
         """
-        Reject ball detections that fall inside a player's head region, since these
-        are almost always the model mistaking a player's head for the ball.
+        Reject ball detections that fall inside a player's head region.
         """
         for frame_num in range(min(len(ball_positions), len(player_tracks))):
             ball_box = ball_positions[frame_num].get(1, {}).get('bbox', [])
