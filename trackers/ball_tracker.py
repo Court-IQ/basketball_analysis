@@ -91,6 +91,7 @@ class BallTracker:
 
             if chosen_bbox is not None:
                 tracks[frame_num][1] = {"bbox":chosen_bbox}
+                print(f"frame {frame_num}: ball at {chosen_bbox}, conf={max_confidence:.2f}")
 
         save_stub(stub_path,tracks)
         
@@ -150,4 +151,28 @@ class BallTracker:
         df_ball_positions = df_ball_positions.bfill()
 
         ball_positions = [{1: {"bbox":x}} for x in df_ball_positions.to_numpy().tolist()]
+        return ball_positions
+    
+    def filter_ball_near_player_heads(self, ball_positions, player_tracks, head_height_fraction=0.3):
+        """
+        Reject ball detections that fall inside a player's head region, since these
+        are almost always the model mistaking a player's head for the ball.
+        """
+        for frame_num in range(min(len(ball_positions), len(player_tracks))):
+            ball_box = ball_positions[frame_num].get(1, {}).get('bbox', [])
+            if len(ball_box) == 0:
+                continue
+
+            ball_center_x = (ball_box[0] + ball_box[2]) / 2
+            ball_center_y = (ball_box[1] + ball_box[3]) / 2
+
+            for player_id, player_data in player_tracks[frame_num].items():
+                p_bbox = player_data['bbox']
+                p_x1, p_y1, p_x2, p_y2 = p_bbox
+                head_region_bottom = p_y1 + (p_y2 - p_y1) * head_height_fraction
+
+                if p_x1 <= ball_center_x <= p_x2 and p_y1 <= ball_center_y <= head_region_bottom:
+                    ball_positions[frame_num] = {}
+                    break
+
         return ball_positions

@@ -70,6 +70,7 @@ def main():
                                                                     stub_path=os.path.join(args.stub_path, 'court_key_points_stub.pkl')
                                                                     )
 
+    ball_tracks = ball_tracker.filter_ball_near_player_heads(ball_tracks, player_tracks)
     # Remove Wrong Ball Detections
     ball_tracks = ball_tracker.remove_wrong_detections(ball_tracks)
     # Interpolate Ball Tracks
