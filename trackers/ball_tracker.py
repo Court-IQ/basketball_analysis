@@ -66,7 +66,8 @@ class BallTracker:
                 cls_id = frame_detection[3]
                 confidence = frame_detection[2]
 
-                if cls_id != cls_names_inv['Ball']:
+                class_name = cls_names.get(cls_id, "").lower()
+                if class_name not in ("ball", "basketball"):
                     continue
 
                 width = bbox[2] - bbox[0]
