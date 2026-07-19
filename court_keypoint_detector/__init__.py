@@ -1,1 +1,2 @@
 from .court_keypoint_detector import CourtKeypointDetector
+from .court_keypoint_detector_v2 import CourtKeypointDetectorV2
