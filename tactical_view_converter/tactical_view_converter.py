@@ -127,6 +127,8 @@ class TacticalViewConverter:
             list: List of dictionaries where each dictionary maps player IDs to their (x, y) positions
                 in the tactical view coordinate system. The list index corresponds to the frame number.
         """
+
+        
         tactical_player_positions = []
         
         for frame_idx, (frame_keypoints, frame_tracks) in enumerate(zip(keypoints_list, player_tracks)):
@@ -179,5 +181,57 @@ class TacticalViewConverter:
             
             tactical_player_positions.append(tactical_positions)
         
+        return tactical_player_positions
+    def transform_players_to_tactical_view_v2(self, court_keypoints_list, player_tracks, real_world_points):
+        """
+        Same purpose as transform_players_to_tactical_view, but for the new
+        named-point court keypoint format (list of {point_id: (px, py)} dicts)
+        instead of the old fixed-index keypoint array.
+        """
+        tactical_player_positions = []
+
+        for frame_idx, (frame_keypoints, frame_tracks) in enumerate(zip(court_keypoints_list, player_tracks)):
+            tactical_positions = {}
+
+            if not frame_keypoints or len(frame_keypoints) < 4:
+                tactical_player_positions.append(tactical_positions)
+                continue
+
+            source_points = []
+            target_points = []
+            for point_id, (px, py) in frame_keypoints.items():
+                if point_id not in real_world_points:
+                    continue
+                rx, ry = real_world_points[point_id]
+                source_points.append([px, py])
+                target_x = (rx / self.actual_width_in_meters) * self.width
+                target_y = (ry / self.actual_height_in_meters) * self.height
+                target_points.append([target_x, target_y])
+
+            if len(source_points) < 4:
+                tactical_player_positions.append(tactical_positions)
+                continue
+
+            source_points = np.array(source_points, dtype=np.float32)
+            target_points = np.array(target_points, dtype=np.float32)
+
+            try:
+                homography = Homography(source_points, target_points)
+
+                for player_id, player_data in frame_tracks.items():
+                    bbox = player_data["bbox"]
+                    player_position = np.array([get_foot_position(bbox)])
+                    tactical_position = homography.transform_points(player_position)
+
+                    if tactical_position[0][0] < 0 or tactical_position[0][0] > self.width or tactical_position[0][1] < 0 or tactical_position[0][1] > self.height:
+                        continue
+
+                    tactical_positions[player_id] = tactical_position[0].tolist()
+
+            except (ValueError, cv2.error):
+                pass
+
+            tactical_player_positions.append(tactical_positions)
+
         return tactical_player_positions
 

@@ -5,6 +5,7 @@ from utils import read_video, save_video
 from trackers import PlayerTracker, BallTracker
 from team_assigner import TeamAssigner
 from court_keypoint_detector import CourtKeypointDetector
+from court_keypoint_detector import CourtKeypointDetectorV2
 from ball_aquisition import BallAquisitionDetector
 from pass_and_interception_detector import PassAndInterceptionDetector
 from tactical_view_converter import TacticalViewConverter
@@ -52,6 +53,7 @@ def main():
 
     ## Initialize Keypoint Detector
     court_keypoint_detector = CourtKeypointDetector(COURT_KEYPOINT_DETECTOR_PATH)
+    court_keypoint_detector_v2 = CourtKeypointDetectorV2("models/court_keypoint_detector_v2.pt")
 
     # Run Detectors
     player_tracks = player_tracker.get_object_tracks(video_frames,
@@ -68,6 +70,10 @@ def main():
     court_keypoints_per_frame = court_keypoint_detector.get_court_keypoints(video_frames,
                                                                     read_from_stub=True,
                                                                     stub_path=os.path.join(args.stub_path, 'court_key_points_stub.pkl')
+                                                                    )
+    court_keypoints_v2_per_frame = court_keypoint_detector_v2.get_court_keypoints(video_frames,
+                                                                    read_from_stub=True,
+                                                                    stub_path=os.path.join(args.stub_path, 'court_key_points_v2_stub.pkl')
                                                                     )
 
     ball_tracks = ball_tracker.filter_ball_near_player_heads(ball_tracks, player_tracks)
@@ -103,7 +109,7 @@ def main():
     )
 
     court_keypoints_per_frame = tactical_view_converter.validate_keypoints(court_keypoints_per_frame)
-    tactical_player_positions = tactical_view_converter.transform_players_to_tactical_view(court_keypoints_per_frame,player_tracks)
+    tactical_player_positions = tactical_view_converter.transform_players_to_tactical_view_v2(court_keypoints_v2_per_frame, player_tracks, court_keypoint_detector_v2.REAL_WORLD_POINTS)
 
     # Speed and Distance Calculator
     speed_and_distance_calculator = SpeedAndDistanceCalculator(
